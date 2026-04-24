@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Problem Solving — RA2411026050043</title>
+<meta name="description" content="AI Problem Solving assessment: Wumpus World AI game and Emergency Command Center.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#070b16;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 40% at 50% 20%,rgba(99,102,241,.08),transparent);pointer-events:none}
+.container{max-width:700px;width:100%;text-align:center;position:relative;z-index:1}
+h1{font-size:2.4rem;font-weight:900;background:linear-gradient(135deg,#818cf8,#06b6d4,#22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;letter-spacing:-.5px}
+.sub{color:#94a3b8;font-size:.92rem;margin-bottom:8px}
+.reg{color:#64748b;font-size:.78rem;margin-bottom:40px;font-family:'JetBrains Mono',monospace}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:30px}
+@media(max-width:600px){.cards{grid-template-columns:1fr}}
+.card{background:rgba(14,20,40,.8);border:1px solid #1c2a4e;border-radius:14px;padding:28px 22px;text-align:left;transition:all .3s;cursor:pointer;text-decoration:none;color:inherit;display:flex;flex-direction:column;backdrop-filter:blur(8px)}
+.card:hover{transform:translateY(-4px);border-color:#3b82f6;box-shadow:0 8px 32px rgba(59,130,246,.12)}
+.card .emoji{font-size:2.2rem;margin-bottom:12px}
+.card h2{font-size:1.05rem;font-weight:800;margin-bottom:6px;color:#e2e8f0}
+.card p{font-size:.8rem;color:#8b9cc0;line-height:1.5;flex:1}
+.card .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:12px}
+.tag{padding:3px 8px;border-radius:4px;font-size:.65rem;font-weight:600;letter-spacing:.3px}
+.tag-blue{background:rgba(59,130,246,.12);color:#60a5fa}
+.tag-green{background:rgba(34,197,94,.12);color:#4ade80}
+.tag-purple{background:rgba(139,92,246,.12);color:#a78bfa}
+.tag-red{background:rgba(239,68,68,.12);color:#f87171}
+.tag-cyan{background:rgba(6,182,212,.12);color:#22d3ee}
+.footer{color:#475569;font-size:.75rem;margin-top:20px}
+.footer a{color:#60a5fa;text-decoration:none}
+.footer a:hover{text-decoration:underline}
+.arrow{display:inline-block;margin-top:12px;font-size:.78rem;font-weight:600;color:#60a5fa;opacity:.7}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>AI Problem Solving</h1>
+  <p class="sub">Interactive AI-powered web applications</p>
+  <p class="reg">Register No: RA2411026050043</p>
+
+  <div class="cards">
+    <a class="card" href="Problem15_WumpusWorld/wumpus_world.html">
+      <div class="emoji">⚔️</div>
+      <h2>Wumpus World</h2>
+      <p>Navigate a dark cave with AI inference — avoid pits & the Wumpus, find gold, and escape. Rule-based reasoning deduces safe paths in real-time.</p>
+      <div class="tags">
+        <span class="tag tag-blue">Rule-Based Inference</span>
+        <span class="tag tag-green">BFS Pathfinding</span>
+        <span class="tag tag-purple">Knowledge Base</span>
+      </div>
+      <span class="arrow">Play Game →</span>
+    </a>
+
+    <a class="card" href="Problem20_EmergencyResponse/emergency_response.html">
+      <div class="emoji">🚨</div>
+      <h2>Emergency Command Center</h2>
+      <p>Real-time city emergency dispatch with animated map, concurrent crises, vehicle tracking, and 5 integrated AI decision modules.</p>
+      <div class="tags">
+        <span class="tag tag-blue">A* Search</span>
+        <span class="tag tag-cyan">CSP</span>
+        <span class="tag tag-red">Rule-Based</span>
+        <span class="tag tag-purple">ML</span>
+        <span class="tag tag-green">MEA</span>
+      </div>
+      <span class="arrow">Open Dashboard →</span>
+    </a>
+  </div>
+
+  <div class="footer">
+    Built with HTML5, CSS3, JavaScript — No backend, no dependencies<br>
+    <a href="https://github.com">View on GitHub</a>
+  </div>
+</div>
+</body>
+</html>
