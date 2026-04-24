@@ -1,6 +1,10 @@
 # AI Problem Solving Assessment
 
-> Interactive AI-powered web applications: a Wumpus World exploration game with AI inference, and a real-time Emergency Command Center with 5 AI modules.
+> **Register Number**: RA2411026050043
+
+> 🌐 **Live Website**: [https://chethanbugide-png.github.io/AI_ProblemSolving_RA2411026050043/](https://chethanbugide-png.github.io/AI_ProblemSolving_RA2411026050043/)
+
+Interactive AI-powered web applications: a Wumpus World exploration game with AI inference, and a real-time Emergency Command Center with 5 AI modules.
 
 ---
 
