@@ -14,10 +14,8 @@
 
 **Register Number** · `RA2411026050043`
 
----
 
-*Two standalone AI systems built with pure HTML/CSS/JS — no backend, no frameworks, no dependencies.*
-*Just open in any browser and experience AI in action.*
+
 
 </div>
 
