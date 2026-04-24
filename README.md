@@ -28,10 +28,10 @@
 ```
 AI_ProblemSolving_RA2411026050043/
 │
-├── 🎮 Problem15_WumpusWorld/
+├── 🎮 WumpusWorld/
 │   └── wumpus_world.html              ← AI Inference Game
 │
-├── 🚨 Problem20_EmergencyResponse/
+├── 🚨 EmergencyResponse/
 │   └── emergency_response.html        ← Command Center Dashboard
 │
 ├── 🏠 index.html                       ← Landing Page (GitHub Pages)
@@ -43,7 +43,7 @@ AI_ProblemSolving_RA2411026050043/
 
 <div align="center">
 
-## ⚔️ Problem 15 — Wumpus World
+## ⚔️ Wumpus World
 
 ### *AI Inference Game with Fog-of-War Exploration*
 
@@ -123,7 +123,7 @@ AI_ProblemSolving_RA2411026050043/
 
 <div align="center">
 
-## 🚨 Problem 20 — Emergency Command Center
+## 🚨 Emergency Command Center
 
 ### *Real-Time Multi-Module AI Decision Support System*
 
@@ -229,10 +229,10 @@ git clone https://github.com/chethanbugide-png/AI_ProblemSolving_RA2411026050043
 # No server, no build, no dependencies needed!
 
 # Option 1: Wumpus World Game
-start Problem15_WumpusWorld/wumpus_world.html
+start WumpusWorld/wumpus_world.html
 
 # Option 2: Emergency Command Center
-start Problem20_EmergencyResponse/emergency_response.html
+start EmergencyResponse/emergency_response.html
 
 # Option 3: Landing Page
 start index.html
