@@ -176,11 +176,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <div class="lpanel-section">
       <div class="section-title">📝 Report Emergency</div>
       <div class="presets">
-        <button class="btn btn-ghost btn-sm" onclick="preset('accident')">🚗 Accident</button>
-        <button class="btn btn-ghost btn-sm" onclick="preset('fire')">🔥 Fire</button>
-        <button class="btn btn-ghost btn-sm" onclick="preset('medical')">🏥 Medical</button>
-        <button class="btn btn-ghost btn-sm" onclick="preset('flood')">🌊 Flood</button>
-        <button class="btn btn-ghost btn-sm" onclick="preset('chemical')">☣️ Chemical</button>
+        <button class="btn btn-ghost btn-sm" onclick="preset('accident',event)">🚗 Accident</button>
+        <button class="btn btn-ghost btn-sm" onclick="preset('fire',event)">🔥 Fire</button>
+        <button class="btn btn-ghost btn-sm" onclick="preset('medical',event)">🏥 Medical</button>
+        <button class="btn btn-ghost btn-sm" onclick="preset('flood',event)">🌊 Flood</button>
+        <button class="btn btn-ghost btn-sm" onclick="preset('chemical',event)">☣️ Chemical</button>
       </div>
       <div class="fg">
         <label>Emergency Type</label>
@@ -355,9 +355,13 @@ function solveCSP(eNode,eType,pri){
 function classify(d){
   const rules=[];let s=0;
   const add=(r,p)=>{s+=p;rules.push(r);};
-  ({critical:40,severe:25,moderate:12,minor:5})[d.inj]&&add(`Injury: ${d.inj} → +${({critical:40,severe:25,moderate:12,minor:5})[d.inj]}`,({critical:40,severe:25,moderate:12,minor:5})[d.inj]);
+  const injPts={critical:40,severe:25,moderate:12,minor:5};
+  const ip=injPts[d.inj]||5;
+  add(`Injury: ${d.inj} → +${ip}`,ip);
   if(d.vic>=10)add(`Victims: ${d.vic} (mass) → +30`,30);else if(d.vic>=5)add(`Victims: ${d.vic} → +20`,20);else if(d.vic>=2)add(`Victims: ${d.vic} → +10`,10);else add(`Victims: 1 → +3`,3);
-  ({high:15,medium:8,low:2})[d.risk]&&add(`Zone: ${d.risk} → +${({high:15,medium:8,low:2})[d.risk]}`,({high:15,medium:8,low:2})[d.risk]);
+  const riskPts={high:15,medium:8,low:2};
+  const rp=riskPts[d.risk]||2;
+  add(`Zone: ${d.risk} → +${rp}`,rp);
   if(['fire','chemical','collapse'].includes(d.type))add(`Type: ${d.type} → +15`,15);else if(d.type==='flood')add('Type: flood → +10',10);else add(`Type: ${d.type} → +5`,5);
   if(d.delay>=30)add(`Delay: ${d.delay}min → +15`,15);else if(d.delay>=15)add(`Delay: ${d.delay}min → +8`,8);else add(`Delay: ${d.delay}min → +2`,2);
   let p='LOW';if(s>=60)p='HIGH';else if(s>=35)p='MEDIUM';
@@ -398,9 +402,9 @@ function mlPredict(d){
 // ============================================================
 //  PRESETS
 // ============================================================
-function preset(name){
+function preset(name,e){
   document.querySelectorAll('.presets .btn').forEach(b=>b.classList.remove('on'));
-  event.target.classList.add('on');
+  if(e&&e.target)e.target.classList.add('on');
   const sc={
     accident:{t:'accident',l:'C',i:'severe',v:3,r:'medium',d:8},
     fire:{t:'fire',l:'F',i:'critical',v:5,r:'high',d:3},
@@ -639,7 +643,9 @@ function initMap(){
   mapW=rect.width;mapH=rect.height;
   c.width=mapW*dpr;c.height=mapH*dpr;
   c.style.width=mapW+'px';c.style.height=mapH+'px';
-  c.getContext('2d').scale(dpr,dpr);
+  const ctx=c.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(dpr,dpr);
 }
 
 function nx(id){return NODES[id].x*mapW;}

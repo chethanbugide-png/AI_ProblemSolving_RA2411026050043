@@ -476,7 +476,9 @@ function cellClick(r,c){
 
 // ---- KEYBOARD ----
 document.addEventListener('keydown',(e)=>{
-  if(gameOver) return;
+  // Only intercept keys when game screen is visible
+  const gameScreenVisible = document.getElementById('gameScreen').style.display !== 'none';
+  if(!gameScreenVisible || gameOver) return;
   const map={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1],w:[-1,0],s:[1,0],a:[0,-1],d:[0,1]};
   const m=map[e.key];
   if(m){
@@ -484,9 +486,9 @@ document.addEventListener('keydown',(e)=>{
     if(shootMode) shootArrow(m[0],m[1]);
     else move(m[0],m[1]);
   }
-  if(e.key==='g'||e.key==='G') grab();
-  if(e.key==='c'||e.key==='C') climb();
-  if(e.key==='f'||e.key==='F') enterShootMode();
+  if(e.key==='g'||e.key==='G'){ e.preventDefault(); grab(); }
+  if(e.key==='c'||e.key==='C'){ e.preventDefault(); climb(); }
+  if(e.key==='f'||e.key==='F'){ e.preventDefault(); enterShootMode(); }
 });
 
 // ============================================================
@@ -586,12 +588,7 @@ function findSafePath(kb){
   const seen=new Set([start]);
   const safeMoves=[];
 
-  // Find nearest unvisited safe cell or gold
-  let goldTarget=null;
-  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
-    if(board[r][c].gold && visited[r][c]) continue;
-    if(board[r][c].glitter && !board[r][c].gold) continue;
-  }
+  // BFS to find nearest unvisited safe cells
 
   while(q.length){
     const [cur,path]=q.shift();
