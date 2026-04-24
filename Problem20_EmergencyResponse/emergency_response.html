@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emergency Command Center — AI Decision Support</title>
+<meta name="description" content="Real-time AI-powered emergency command center with interactive city map, animated dispatch, and multi-module decision support.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#04060e;--surface:#0a0f1e;--panel:#0e1428;--panel2:#131c34;--panel3:#182340;
+  --border:#1c2a4e;--border2:#253560;
+  --text:#e2e8f0;--dim:#8b9cc0;--muted:#5a6d94;
+  --red:#ef4444;--red-g:#f87171;--red-bg:rgba(239,68,68,.1);
+  --orange:#f97316;--orange-bg:rgba(249,115,22,.1);
+  --yellow:#eab308;--yellow-bg:rgba(234,179,8,.1);
+  --green:#22c55e;--green-bg:rgba(34,197,94,.1);
+  --blue:#3b82f6;--blue-bg:rgba(59,130,246,.1);
+  --cyan:#06b6d4;--cyan-bg:rgba(6,182,212,.08);
+  --purple:#8b5cf6;--purple-bg:rgba(139,92,246,.1);
+  --pink:#ec4899;
+  --r:10px;--rs:6px;
+}
+html{font-size:14px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ===== TOP BAR ===== */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:48px;display:flex;align-items:center;gap:16px;flex-shrink:0;z-index:10}
+.topbar .logo{font-weight:900;font-size:1rem;background:linear-gradient(135deg,var(--red-g),var(--orange),var(--yellow));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.3px;display:flex;align-items:center;gap:6px}
+.topbar .logo span{font-size:1.1rem;-webkit-text-fill-color:initial}
+.topbar .sep{width:1px;height:24px;background:var(--border)}
+.topbar .clock{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--dim);font-weight:500}
+.topbar .alert-level{padding:4px 12px;border-radius:16px;font-size:.7rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;gap:5px}
+.alert-green{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.alert-yellow{background:var(--yellow-bg);color:var(--yellow);border:1px solid rgba(234,179,8,.2)}
+.alert-red{background:var(--red-bg);color:var(--red-g);border:1px solid rgba(239,68,68,.2);animation:alertPulse 2s ease infinite}
+.topbar .spacer{flex:1}
+.topbar .stat-pill{display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--dim);background:var(--panel);padding:4px 10px;border-radius:14px;border:1px solid var(--border)}
+.topbar .stat-pill .n{font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace}
+
+/* ===== MAIN LAYOUT ===== */
+.main{flex:1;display:grid;grid-template-columns:320px 1fr 340px;overflow:hidden}
+@media(max-width:1100px){.main{grid-template-columns:280px 1fr 0}}
+
+/* ===== LEFT PANEL ===== */
+.left-panel{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.lpanel-section{padding:14px 16px;border-bottom:1px solid var(--border)}
+.section-title{font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+
+/* Form */
+.fg{margin-bottom:10px}
+.fg label{display:block;font-size:.7rem;font-weight:600;color:var(--dim);margin-bottom:3px;letter-spacing:.3px}
+.fg select,.fg input{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:var(--rs);font-size:.8rem;font-family:inherit;outline:none;transition:border .2s}
+.fg select:focus,.fg input:focus{border-color:var(--blue)}
+.fg select{-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%235a6d94' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:24px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* Buttons */
+.btn{padding:8px 16px;border:none;border-radius:var(--rs);font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.btn-emergency{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;width:100%;padding:11px;font-size:.85rem;box-shadow:0 4px 16px rgba(239,68,68,.25);position:relative;overflow:hidden}
+.btn-emergency::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);transform:translateX(-100%);transition:transform .5s}
+.btn-emergency:hover::after{transform:translateX(100%)}
+.btn-emergency:hover{box-shadow:0 6px 24px rgba(239,68,68,.4);transform:translateY(-1px)}
+.btn-sm{padding:4px 10px;font-size:.68rem;border-radius:12px}
+.btn-ghost{background:var(--panel2);color:var(--dim);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--blue);color:var(--text)}
+.btn-ghost.on{background:var(--blue-bg);color:var(--blue);border-color:rgba(59,130,246,.3)}
+.presets{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+
+/* Resource list */
+.res-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(28,42,78,.5);font-size:.78rem}
+.res-item:last-child{border:none}
+.res-icon{font-size:1rem}
+.res-info{flex:1;display:flex;flex-direction:column}
+.res-info .rn{font-weight:600;font-size:.76rem}
+.res-info .rd{font-size:.65rem;color:var(--muted)}
+.res-status{width:8px;height:8px;border-radius:50%}
+.res-status.ok{background:var(--green);box-shadow:0 0 6px rgba(34,197,94,.4)}
+.res-status.busy{background:var(--red);box-shadow:0 0 6px rgba(239,68,68,.4)}
+.res-status.dispatched{background:var(--orange);box-shadow:0 0 6px rgba(249,115,22,.4);animation:blink 1s ease infinite}
+
+/* ===== CENTER: MAP ===== */
+.center{position:relative;overflow:hidden;background:#060a16}
+.center canvas{width:100%;height:100%;display:block}
+.map-overlay{position:absolute;bottom:12px;left:12px;display:flex;gap:6px}
+.map-chip{background:rgba(10,15,30,.85);border:1px solid var(--border);border-radius:14px;padding:4px 10px;font-size:.65rem;color:var(--dim);backdrop-filter:blur(6px);display:flex;align-items:center;gap:4px}
+.map-chip .dot{width:7px;height:7px;border-radius:50%}
+
+/* ===== RIGHT PANEL ===== */
+.right-panel{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+
+/* Result blocks */
+.rblock{padding:14px 16px;border-bottom:1px solid var(--border);animation:slideIn .4s ease}
+.rblock-title{font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.rblock-title .tag{font-size:.6rem;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-weight:600}
+
+/* Priority */
+.pri-display{text-align:center;padding:8px 0}
+.pri-badge{display:inline-flex;align-items:center;gap:5px;padding:6px 16px;border-radius:6px;font-size:.9rem;font-weight:800;letter-spacing:.5px}
+.pri-H{background:var(--red-bg);color:var(--red-g);border:1.5px solid rgba(239,68,68,.25)}
+.pri-M{background:var(--yellow-bg);color:var(--yellow);border:1.5px solid rgba(234,179,8,.25)}
+.pri-L{background:var(--green-bg);color:var(--green);border:1.5px solid rgba(34,197,94,.25)}
+.pri-score{font-size:.7rem;color:var(--muted);margin-top:4px}
+.rules-box{font-size:.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace;background:var(--panel2);padding:6px 8px;border-radius:var(--rs);line-height:1.7;margin-top:6px;max-height:90px;overflow-y:auto}
+
+/* Route */
+.route-flow{display:flex;align-items:center;gap:3px;flex-wrap:wrap;padding:6px 8px;background:var(--panel2);border-radius:var(--rs);margin-bottom:4px}
+.rf-node{padding:3px 7px;background:var(--blue-bg);color:var(--blue);border-radius:3px;font-size:.68rem;font-weight:600;font-family:'JetBrains Mono',monospace}
+.rf-arrow{color:var(--muted);font-size:.55rem}
+.rf-meta{font-size:.65rem;color:var(--muted);margin-top:2px}
+
+/* Resource assignment */
+.assign-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(28,42,78,.4);font-size:.75rem}
+.assign-row:last-child{border:none}
+.assign-icon{font-size:.9rem}
+.assign-info{flex:1}
+.assign-name{font-weight:600;font-size:.74rem}
+.assign-detail{font-size:.63rem;color:var(--muted)}
+.assign-status{font-size:.62rem;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--green-bg);color:var(--green)}
+
+/* Steps */
+.step-list{counter-reset:st}
+.step-item{counter-increment:st;padding:5px 0 5px 28px;position:relative;font-size:.73rem;color:var(--dim);border-left:1.5px solid var(--border);margin-left:8px}
+.step-item::before{content:counter(st);position:absolute;left:-9px;top:3px;width:18px;height:18px;background:var(--panel);border:1.5px solid var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.58rem;font-weight:700;color:var(--blue)}
+.step-item:last-child{border-left-color:transparent}
+.step-item strong{color:var(--text);font-weight:600}
+
+/* Gauge */
+.gauge{width:100%;height:6px;background:var(--panel);border-radius:3px;overflow:hidden;margin:4px 0}
+.gauge-fill{height:100%;border-radius:3px;transition:width .8s ease}
+
+/* Timeline */
+.timeline{display:flex;flex-direction:column;gap:2px}
+.tl-item{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:.7rem}
+.tl-time{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:.63rem;flex-shrink:0;width:52px;text-align:right}
+.tl-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.tl-text{color:var(--dim);line-height:1.4}
+
+/* Empty */
+.empty-right{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center;padding:20px}
+.empty-right .icon{font-size:2.5rem;opacity:.3;margin-bottom:10px}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Animations */
+@keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+@keyframes alertPulse{0%,100%{opacity:1}50%{opacity:.7}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes emergencyPulse{0%{transform:scale(1);opacity:.6}100%{transform:scale(3);opacity:0}}
+@keyframes vehicleGlow{0%,100%{filter:drop-shadow(0 0 3px rgba(59,130,246,.6))}50%{filter:drop-shadow(0 0 8px rgba(59,130,246,.9))}}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo"><span>🚨</span> COMMAND CENTER</div>
+  <div class="sep"></div>
+  <div class="clock" id="clock">00:00:00</div>
+  <div class="sep"></div>
+  <div class="alert-level alert-green" id="alertLevel">● NORMAL</div>
+  <div class="spacer"></div>
+  <div class="stat-pill">🚑 Active: <span class="n" id="topActive">0</span></div>
+  <div class="stat-pill">✅ Resolved: <span class="n" id="topResolved">0</span></div>
+  <div class="stat-pill">📊 Avg Response: <span class="n" id="topAvg">—</span></div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="lpanel-section">
+      <div class="section-title">📝 Report Emergency</div>
+      <div class="presets">
+        <button class="btn btn-ghost btn-sm" onclick="preset('accident')">🚗 Accident</button>
+        <button class="btn btn-ghost btn-sm" onclick="preset('fire')">🔥 Fire</button>
+        <button class="btn btn-ghost btn-sm" onclick="preset('medical')">🏥 Medical</button>
+        <button class="btn btn-ghost btn-sm" onclick="preset('flood')">🌊 Flood</button>
+        <button class="btn btn-ghost btn-sm" onclick="preset('chemical')">☣️ Chemical</button>
+      </div>
+      <div class="fg">
+        <label>Emergency Type</label>
+        <select id="fType">
+          <option value="accident">🚗 Road Accident</option>
+          <option value="fire">🔥 Building Fire</option>
+          <option value="medical">🏥 Medical Emergency</option>
+          <option value="flood">🌊 Flood / Disaster</option>
+          <option value="collapse">🏚️ Building Collapse</option>
+          <option value="chemical">☣️ Chemical Spill</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Location (click map or select)</label>
+        <select id="fLoc">
+          <option value="A">Downtown HQ (A)</option>
+          <option value="B">Central Station (B)</option>
+          <option value="C">Highway Junction (C)</option>
+          <option value="D">Suburb Hospital (D)</option>
+          <option value="E">Residential Zone (E)</option>
+          <option value="F">Industrial Area (F)</option>
+          <option value="G">Medical Center (G)</option>
+          <option value="H">East Outpost (H)</option>
+        </select>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>Injury Severity</label>
+          <select id="fInj"><option value="critical">Critical</option><option value="severe">Severe</option><option value="moderate" selected>Moderate</option><option value="minor">Minor</option></select>
+        </div>
+        <div class="fg"><label>Victims</label><input type="number" id="fVic" value="2" min="1" max="100"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>Zone Risk</label>
+          <select id="fRisk"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select>
+        </div>
+        <div class="fg"><label>Delay (min)</label><input type="number" id="fDelay" value="5" min="0" max="120"></div>
+      </div>
+      <button class="btn btn-emergency" onclick="dispatch()">🚨 DISPATCH EMERGENCY</button>
+    </div>
+
+    <!-- Resources -->
+    <div class="lpanel-section">
+      <div class="section-title">🏗️ Resources</div>
+      <div id="resList"></div>
+    </div>
+
+    <!-- Active Emergencies -->
+    <div class="lpanel-section" style="flex:1">
+      <div class="section-title">⚡ Active Emergencies <span style="flex:1"></span><span id="activeCount" style="color:var(--red-g);font-weight:700">0</span></div>
+      <div id="activeList" style="font-size:.75rem;color:var(--muted)">No active emergencies.</div>
+    </div>
+  </div>
+
+  <!-- CENTER: MAP -->
+  <div class="center">
+    <canvas id="mapCanvas"></canvas>
+    <div class="map-overlay">
+      <div class="map-chip"><div class="dot" style="background:var(--purple)"></div> HQ</div>
+      <div class="map-chip"><div class="dot" style="background:var(--blue)"></div> Station</div>
+      <div class="map-chip"><div class="dot" style="background:var(--green)"></div> Hospital</div>
+      <div class="map-chip"><div class="dot" style="background:var(--red)"></div> Emergency</div>
+      <div class="map-chip"><div class="dot" style="background:var(--orange)"></div> Dispatch</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel" id="rightPanel">
+    <div class="empty-right" id="emptyRight">
+      <div class="icon">🛡️</div>
+      <div style="font-size:.85rem;font-weight:600;margin-bottom:4px">Command Center Ready</div>
+      <div style="font-size:.75rem">Report an emergency to activate<br>AI analysis and dispatch.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  EMERGENCY COMMAND CENTER
+//  Modules: A* Search, CSP, Rule-Based, MEA, ML Classification
+// ============================================================
+
+// ---- CITY GRAPH ----
+const NODES = {
+  A:{name:'Downtown HQ',x:.15,y:.15,hospital:true,station:true,icon:'🏛️'},
+  B:{name:'Central Station',x:.45,y:.10,hospital:false,station:true,icon:'🚉'},
+  C:{name:'Highway Junction',x:.80,y:.18,hospital:false,station:false,icon:'🛣️'},
+  D:{name:'Suburb Hospital',x:.12,y:.50,hospital:true,station:false,icon:'🏥'},
+  E:{name:'Residential Zone',x:.48,y:.48,hospital:false,station:false,icon:'🏘️'},
+  F:{name:'Industrial Area',x:.82,y:.52,hospital:false,station:true,icon:'🏭'},
+  G:{name:'Medical Center',x:.30,y:.78,hospital:true,station:false,icon:'⛑️'},
+  H:{name:'East Outpost',x:.72,y:.80,hospital:false,station:true,icon:'📡'},
+};
+const EDGES=[['A','B',4],['A','D',5],['B','C',6],['B','E',3],['C','F',4],['D','E',4],['D','G',3],['E','F',5],['E','G',5],['E','H',6],['F','H',3],['G','H',7]];
+
+// ---- RESOURCES ----
+const RESOURCES = [
+  {id:'AMB-01',type:'amb',name:'Ambulance Alpha',loc:'A',ok:true,icon:'🚑',spec:'Advanced Life Support'},
+  {id:'AMB-02',type:'amb',name:'Ambulance Beta',loc:'D',ok:true,icon:'🚑',spec:'Basic Life Support'},
+  {id:'AMB-03',type:'amb',name:'Ambulance Gamma',loc:'F',ok:true,icon:'🚑',spec:'Advanced Life Support'},
+  {id:'RT-01',type:'team',name:'Alpha Squad',loc:'A',ok:true,icon:'🧑‍🚒',spec:'Fire & Rescue'},
+  {id:'RT-02',type:'team',name:'Bravo Team',loc:'B',ok:true,icon:'🧑‍⚕️',spec:'Medical'},
+  {id:'RT-03',type:'team',name:'Charlie Unit',loc:'F',ok:true,icon:'🧪',spec:'HazMat'},
+  {id:'RT-04',type:'team',name:'Delta Force',loc:'H',ok:true,icon:'🔍',spec:'Search & Rescue'},
+  {id:'HSP-01',type:'hosp',name:'Downtown General',loc:'A',ok:true,icon:'🏥',spec:'Trauma',beds:12},
+  {id:'HSP-02',type:'hosp',name:'Suburb Medical',loc:'D',ok:true,icon:'🏥',spec:'General',beds:8},
+  {id:'HSP-03',type:'hosp',name:'City Medical Ctr',loc:'G',ok:true,icon:'🏥',spec:'Burns & ICU',beds:20},
+];
+
+let emergencies = [];   // active emergencies
+let resolvedCount = 0;
+let timeline = [];
+let dispatchAnimations = []; // {from, to, path, progress, color, emergency}
+let emergencyPulses = [];    // {node, age, color}
+
+// ============================================================
+//  A* SEARCH
+// ============================================================
+function h(a,b){const na=NODES[a],nb=NODES[b];return Math.hypot(na.x-nb.x,na.y-nb.y)*10;}
+function adj(n){const r=[];for(const[a,b,w]of EDGES){if(a===n)r.push([b,w]);if(b===n)r.push([a,w]);}return r;}
+function astar(s,g){
+  if(s===g)return{path:[s],cost:0};
+  const open=[{n:s,g:0,f:h(s,g),p:[s]}],cl=new Set();
+  while(open.length){
+    open.sort((a,b)=>a.f-b.f);const c=open.shift();
+    if(c.n===g)return{path:c.p,cost:c.g};
+    if(cl.has(c.n))continue;cl.add(c.n);
+    for(const[nb,w]of adj(c.n)){if(cl.has(nb))continue;const ng=c.g+w;open.push({n:nb,g:ng,f:ng+h(nb,g),p:[...c.p,nb]});}
+  }
+  return null;
+}
+function bestRoute(eNode){
+  let br=null,bc=1e9;
+  for(const[id,n]of Object.entries(NODES)){if(!n.station)continue;const r=astar(id,eNode);if(r&&r.cost<bc){bc=r.cost;br={...r,from:id};}}
+  let hr=null,hc=1e9;
+  for(const[id,n]of Object.entries(NODES)){if(!n.hospital)continue;const r=astar(eNode,id);if(r&&r.cost<hc){hc=r.cost;hr={...r,to:id};}}
+  return{rescue:br,hospital:hr,total:(bc<1e9?bc:0)+(hc<1e9?hc:0)};
+}
+
+// ============================================================
+//  CSP
+// ============================================================
+function solveCSP(eNode,eType,pri){
+  const specMap={accident:'Trauma',fire:'Burns & ICU',medical:'General',flood:'General',collapse:'Trauma',chemical:'Burns & ICU'};
+  const teamMap={accident:'Medical',fire:'Fire & Rescue',medical:'Medical',flood:'Search & Rescue',collapse:'Search & Rescue',chemical:'HazMat'};
+  const need=specMap[eType]||'General',tneed=teamMap[eType]||'Medical';
+
+  // Ambulance
+  let ba=null,bd=1e9;
+  for(const r of RESOURCES.filter(r=>r.type==='amb'&&r.ok)){
+    const rt=astar(r.loc,eNode);if(!rt)continue;
+    let d=rt.cost;if(r.spec==='Advanced Life Support'&&pri==='HIGH')d-=5;
+    if(d<bd){bd=d;ba=r;}
+  }
+  // Hospital
+  let bh=null,bs=-1e9;
+  for(const r of RESOURCES.filter(r=>r.type==='hosp'&&r.ok)){
+    let sc=(r.beds||0);if(r.spec===need)sc+=50;const rt=astar(eNode,r.loc);if(rt)sc-=rt.cost*2;
+    if(sc>bs){bs=sc;bh=r;}
+  }
+  // Team
+  let bt=null,btd=1e9;
+  for(const r of RESOURCES.filter(r=>r.type==='team'&&r.ok)){
+    const rt=astar(r.loc,eNode);if(!rt)continue;let d=rt.cost;if(r.spec===tneed)d-=10;
+    if(d<btd){btd=d;bt=r;}
+  }
+  return{amb:ba,hosp:bh,team:bt};
+}
+
+// ============================================================
+//  RULE-BASED PRIORITY
+// ============================================================
+function classify(d){
+  const rules=[];let s=0;
+  const add=(r,p)=>{s+=p;rules.push(r);};
+  ({critical:40,severe:25,moderate:12,minor:5})[d.inj]&&add(`Injury: ${d.inj} → +${({critical:40,severe:25,moderate:12,minor:5})[d.inj]}`,({critical:40,severe:25,moderate:12,minor:5})[d.inj]);
+  if(d.vic>=10)add(`Victims: ${d.vic} (mass) → +30`,30);else if(d.vic>=5)add(`Victims: ${d.vic} → +20`,20);else if(d.vic>=2)add(`Victims: ${d.vic} → +10`,10);else add(`Victims: 1 → +3`,3);
+  ({high:15,medium:8,low:2})[d.risk]&&add(`Zone: ${d.risk} → +${({high:15,medium:8,low:2})[d.risk]}`,({high:15,medium:8,low:2})[d.risk]);
+  if(['fire','chemical','collapse'].includes(d.type))add(`Type: ${d.type} → +15`,15);else if(d.type==='flood')add('Type: flood → +10',10);else add(`Type: ${d.type} → +5`,5);
+  if(d.delay>=30)add(`Delay: ${d.delay}min → +15`,15);else if(d.delay>=15)add(`Delay: ${d.delay}min → +8`,8);else add(`Delay: ${d.delay}min → +2`,2);
+  let p='LOW';if(s>=60)p='HIGH';else if(s>=35)p='MEDIUM';
+  return{p,s,rules};
+}
+
+// ============================================================
+//  MEANS-ENDS ANALYSIS
+// ============================================================
+function mea(d,pri,res,rt){
+  return[
+    {a:'🔔 Emergency Detected',d:`${d.type} at ${NODES[d.loc]?.name}. Priority: ${pri}.`},
+    {a:'📡 Alert Dispatch',d:`Notifying ${res.team?.name||'team'}, dispatching ${res.amb?.name||'ambulance'}.`},
+    {a:'🗺️ Route Calculated',d:`${rt.rescue?rt.rescue.path.map(n=>n).join('→'):'direct'}. ETA ~${rt.rescue?rt.rescue.cost*2:5}min.`},
+    {a:'🔍 On-Site Assessment',d:`Assess ${d.vic} victim(s), severity: ${d.inj}. Secure perimeter.`},
+    {a:'💊 Stabilization',d:`First aid & triage. Stabilize critical patients.`},
+    {a:'🚑 Hospital Transport',d:`To ${res.hosp?.name||'hospital'} (${res.hosp?.spec||'ER'}). ETA ~${rt.hospital?rt.hospital.cost*2:10}min.`},
+    {a:'🏥 Admission',d:`${res.hosp?.beds||'-'} beds available. Admit to ${res.hosp?.spec||'emergency'} ward.`},
+    {a:'📋 Incident Closed',d:`File report. Debrief. Restore resource pool.`},
+  ];
+}
+
+// ============================================================
+//  ML SEVERITY PREDICTION
+// ============================================================
+function mlPredict(d){
+  const isc={critical:1,severe:.7,moderate:.4,minor:.15}[d.inj]||.3;
+  const rsc={high:1,medium:.55,low:.2}[d.risk]||.3;
+  const dly=Math.min(d.delay/60,1);
+  const vic=Math.min(d.vic/20,1);
+  const tsc={fire:.9,chemical:.95,collapse:.85,flood:.7,accident:.6,medical:.5}[d.type]||.5;
+  const raw=isc*.30+rsc*.15+dly*.15+vic*.20+tsc*.20+(Math.random()-.5)*.03;
+  const sc=Math.max(0,Math.min(1,raw));
+  let sev='Low';if(sc>=.65)sev='High';else if(sc>=.40)sev='Medium';
+  return{sev,sc:sc.toFixed(3),conf:(78+Math.random()*18).toFixed(0),feat:{i:isc.toFixed(2),r:rsc.toFixed(2),d:dly.toFixed(2),v:vic.toFixed(2),t:tsc.toFixed(2)}};
+}
+
+// ============================================================
+//  PRESETS
+// ============================================================
+function preset(name){
+  document.querySelectorAll('.presets .btn').forEach(b=>b.classList.remove('on'));
+  event.target.classList.add('on');
+  const sc={
+    accident:{t:'accident',l:'C',i:'severe',v:3,r:'medium',d:8},
+    fire:{t:'fire',l:'F',i:'critical',v:5,r:'high',d:3},
+    medical:{t:'medical',l:'E',i:'moderate',v:1,r:'low',d:12},
+    flood:{t:'flood',l:'D',i:'severe',v:15,r:'high',d:20},
+    chemical:{t:'chemical',l:'F',i:'critical',v:4,r:'high',d:5},
+  }[name];
+  document.getElementById('fType').value=sc.t;
+  document.getElementById('fLoc').value=sc.l;
+  document.getElementById('fInj').value=sc.i;
+  document.getElementById('fVic').value=sc.v;
+  document.getElementById('fRisk').value=sc.r;
+  document.getElementById('fDelay').value=sc.d;
+}
+
+// ============================================================
+//  DISPATCH — MAIN
+// ============================================================
+let eIdCounter=0;
+function dispatch(){
+  const d={
+    type:document.getElementById('fType').value,
+    loc:document.getElementById('fLoc').value,
+    inj:document.getElementById('fInj').value,
+    vic:+(document.getElementById('fVic').value)||1,
+    risk:document.getElementById('fRisk').value,
+    delay:+(document.getElementById('fDelay').value)||0,
+  };
+
+  // Run AI modules
+  const pri=classify(d);
+  const rt=bestRoute(d.loc);
+  const res=solveCSP(d.loc,d.type,pri.p);
+  const steps=mea(d,pri.p,res,rt);
+  const ml=mlPredict(d);
+
+  // Mark resources as dispatched
+  if(res.amb)RESOURCES.find(r=>r.id===res.amb.id).ok=false;
+  if(res.team)RESOURCES.find(r=>r.id===res.team.id).ok=false;
+
+  // Create emergency record
+  const eid=++eIdCounter;
+  const now=new Date();
+  const em={id:eid,data:d,pri,rt,res,steps,ml,time:now,status:'active'};
+  emergencies.push(em);
+
+  // Add pulse on map
+  const pColor=pri.p==='HIGH'?'239,68,68':pri.p==='MEDIUM'?'234,179,8':'34,197,94';
+  emergencyPulses.push({node:d.loc,age:0,color:pColor});
+
+  // Start dispatch animation
+  if(rt.rescue){
+    const fullPath=rt.rescue.path.slice();
+    dispatchAnimations.push({path:fullPath,progress:0,speed:.008,color:'#3b82f6',label:res.amb?.name||'AMB',eId:eid});
+  }
+  if(res.team && rt.rescue){
+    const teamRoute=astar(res.team.loc,d.loc);
+    if(teamRoute)dispatchAnimations.push({path:teamRoute.path,progress:0,speed:.006,color:'#f97316',label:res.team?.name||'RT',eId:eid});
+  }
+
+  // Timeline
+  addTimeline(`🚨 Emergency #${eid}: ${d.type} at ${NODES[d.loc].name}`,pri.p==='HIGH'?'var(--red)':'var(--yellow)');
+  if(res.amb)addTimeline(`🚑 ${res.amb.name} dispatched from Node ${res.amb.loc}`,'var(--blue)');
+  if(res.team)addTimeline(`🧑‍🚒 ${res.team.name} deployed from Node ${res.team.loc}`,'var(--orange)');
+  addTimeline(`🗺️ Route: ${rt.rescue?rt.rescue.path.join('→'):'—'} → ${rt.hospital?rt.hospital.path.join('→'):'—'}`,'var(--cyan)');
+
+  // Auto-resolve after some time
+  setTimeout(()=>{
+    const e=emergencies.find(e=>e.id===eid);
+    if(e){
+      e.status='resolved';
+      resolvedCount++;
+      if(res.amb)RESOURCES.find(r=>r.id===res.amb.id).ok=true;
+      if(res.team)RESOURCES.find(r=>r.id===res.team.id).ok=true;
+      addTimeline(`✅ Emergency #${eid} resolved.`,'var(--green)');
+      renderLeftPanel();
+      updateTopbar();
+    }
+  },15000+Math.random()*10000);
+
+  // Render
+  renderRightPanel(em);
+  renderLeftPanel();
+  updateTopbar();
+}
+
+// ============================================================
+//  TIMELINE
+// ============================================================
+function addTimeline(text,color){
+  const now=new Date();
+  const ts=now.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  timeline.unshift({ts,text,color});
+  if(timeline.length>30)timeline.pop();
+}
+
+// ============================================================
+//  RENDER: RIGHT PANEL
+// ============================================================
+function renderRightPanel(em){
+  const el=document.getElementById('rightPanel');
+  document.getElementById('emptyRight')?.remove();
+
+  const {pri,rt,res,steps,ml,data}=em;
+  const pc=pri.p==='HIGH'?'pri-H':pri.p==='MEDIUM'?'pri-M':'pri-L';
+  const pe=pri.p==='HIGH'?'🔴':pri.p==='MEDIUM'?'🟡':'🟢';
+  const sc=ml.sev==='High'?'var(--red)':ml.sev==='Medium'?'var(--yellow)':'var(--green)';
+  const gc=ml.sev==='High'?'#ef4444,#dc2626':ml.sev==='Medium'?'#eab308,#f97316':'#22c55e,#059669';
+  const typeEmoji={accident:'🚗',fire:'🔥',medical:'🏥',flood:'🌊',collapse:'🏚️',chemical:'☣️'}[data.type]||'⚠️';
+
+  el.innerHTML=`
+    <!-- Header -->
+    <div class="rblock" style="background:var(--panel2)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:1.2rem">${typeEmoji}</span>
+        <div>
+          <div style="font-size:.85rem;font-weight:800">Emergency #${em.id}</div>
+          <div style="font-size:.68rem;color:var(--muted)">${NODES[data.loc]?.name} · ${data.vic} victim(s) · ${data.inj}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Priority -->
+    <div class="rblock">
+      <div class="rblock-title">⚡ Priority <span class="tag" style="background:var(--blue-bg);color:var(--blue)">Rule-Based</span></div>
+      <div class="pri-display">
+        <div class="pri-badge ${pc}">${pe} ${pri.p}</div>
+        <div class="pri-score">Score: ${pri.s}/100</div>
+      </div>
+      <div class="rules-box">${pri.rules.map(r=>'• '+r).join('<br>')}</div>
+    </div>
+
+    <!-- ML Severity -->
+    <div class="rblock">
+      <div class="rblock-title">🤖 ML Severity <span class="tag" style="background:var(--purple-bg);color:var(--purple)">Classification</span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0">
+        <span style="font-weight:800;color:${sc}">${ml.sev}</span>
+        <span style="font-size:.68rem;color:var(--muted);font-family:'JetBrains Mono',monospace">score: ${ml.sc} · conf: ${ml.conf}%</span>
+      </div>
+      <div class="gauge"><div class="gauge-fill" style="width:${(ml.sc*100).toFixed(0)}%;background:linear-gradient(90deg,${gc})"></div></div>
+      <div style="font-size:.6rem;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px">
+        inj:${ml.feat.i} risk:${ml.feat.r} delay:${ml.feat.d} vic:${ml.feat.v} type:${ml.feat.t}
+      </div>
+    </div>
+
+    <!-- Route -->
+    <div class="rblock">
+      <div class="rblock-title">🛤️ Optimal Route <span class="tag" style="background:var(--blue-bg);color:var(--blue)">A* Search</span></div>
+      ${rt.rescue?`
+        <div style="font-size:.63rem;color:var(--muted);margin-bottom:2px">Rescue: Station → Scene</div>
+        <div class="route-flow">${rt.rescue.path.map((n,i)=>`<span class="rf-node">${n}</span>${i<rt.rescue.path.length-1?'<span class="rf-arrow">►</span>':''}`).join('')}</div>
+        <div class="rf-meta">${rt.rescue.cost} km · ~${rt.rescue.cost*2} min ETA</div>
+      `:'<div style="color:var(--red);font-size:.75rem">No route found</div>'}
+      ${rt.hospital?`
+        <div style="font-size:.63rem;color:var(--muted);margin-bottom:2px;margin-top:6px">Transport: Scene → Hospital</div>
+        <div class="route-flow">${rt.hospital.path.map((n,i)=>`<span class="rf-node">${n}</span>${i<rt.hospital.path.length-1?'<span class="rf-arrow">►</span>':''}`).join('')}</div>
+        <div class="rf-meta">${rt.hospital.cost} km · ~${rt.hospital.cost*2} min ETA · Total: ${rt.total} km</div>
+      `:''}
+    </div>
+
+    <!-- CSP Resource Assignment -->
+    <div class="rblock">
+      <div class="rblock-title">📋 Resources <span class="tag" style="background:var(--cyan-bg);color:var(--cyan)">CSP</span></div>
+      <div class="assign-row"><span class="assign-icon">🚑</span><div class="assign-info"><div class="assign-name">${res.amb?.name||'N/A'}</div><div class="assign-detail">${res.amb?.spec||'—'} · Node ${res.amb?.loc||'—'}</div></div><span class="assign-status">Dispatched</span></div>
+      <div class="assign-row"><span class="assign-icon">🏥</span><div class="assign-info"><div class="assign-name">${res.hosp?.name||'N/A'}</div><div class="assign-detail">${res.hosp?.spec||'—'} · ${res.hosp?.beds||'-'} beds</div></div><span class="assign-status">Receiving</span></div>
+      <div class="assign-row"><span class="assign-icon">🧑‍🚒</span><div class="assign-info"><div class="assign-name">${res.team?.name||'N/A'}</div><div class="assign-detail">${res.team?.spec||'—'} · Node ${res.team?.loc||'—'}</div></div><span class="assign-status">Deployed</span></div>
+    </div>
+
+    <!-- Means-Ends Action Plan -->
+    <div class="rblock">
+      <div class="rblock-title">📐 Action Plan <span class="tag" style="background:var(--yellow-bg);color:var(--yellow)">Means-Ends</span></div>
+      <div class="step-list">${steps.map(s=>`<div class="step-item"><strong>${s.a}</strong><br>${s.d}</div>`).join('')}</div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="rblock" style="flex:1">
+      <div class="rblock-title">📜 Event Timeline</div>
+      <div class="timeline">${timeline.map(t=>`<div class="tl-item"><span class="tl-time">${t.ts}</span><div class="tl-dot" style="background:${t.color}"></div><span class="tl-text">${t.text}</span></div>`).join('')}</div>
+    </div>
+  `;
+}
+
+// ============================================================
+//  RENDER: LEFT PANEL
+// ============================================================
+function renderLeftPanel(){
+  // Resources
+  const rl=document.getElementById('resList');
+  rl.innerHTML=RESOURCES.map(r=>{
+    const dispatched=!r.ok;
+    const statusCls=dispatched?'dispatched':'ok';
+    return`<div class="res-item"><span class="res-icon">${r.icon}</span><div class="res-info"><span class="rn">${r.name}</span><span class="rd">${r.spec} · Node ${r.loc}</span></div><div class="res-status ${statusCls}" title="${dispatched?'Dispatched':'Available'}"></div></div>`;
+  }).join('');
+
+  // Active emergencies
+  const active=emergencies.filter(e=>e.status==='active');
+  document.getElementById('activeCount').textContent=active.length;
+  const al=document.getElementById('activeList');
+  if(active.length===0){al.innerHTML='<div style="color:var(--muted);font-size:.75rem;padding:8px 0">No active emergencies.</div>';return;}
+  al.innerHTML=active.map(e=>{
+    const emoji={accident:'🚗',fire:'🔥',medical:'🏥',flood:'🌊',collapse:'🏚️',chemical:'☣️'}[e.data.type]||'⚠️';
+    const priCol=e.pri.p==='HIGH'?'var(--red)':e.pri.p==='MEDIUM'?'var(--yellow)':'var(--green)';
+    return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(28,42,78,.4);cursor:pointer" onclick="renderRightPanel(emergencies.find(x=>x.id===${e.id}))">
+      <span>${emoji}</span>
+      <div style="flex:1"><div style="font-weight:600;font-size:.75rem">#${e.id} ${e.data.type}</div><div style="font-size:.65rem;color:var(--muted)">${NODES[e.data.loc]?.name}</div></div>
+      <span style="font-size:.6rem;font-weight:700;color:${priCol}">${e.pri.p}</span>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+//  TOPBAR
+// ============================================================
+function updateTopbar(){
+  const active=emergencies.filter(e=>e.status==='active');
+  document.getElementById('topActive').textContent=active.length;
+  document.getElementById('topResolved').textContent=resolvedCount;
+  const al=document.getElementById('alertLevel');
+  if(active.some(e=>e.pri.p==='HIGH')){al.className='alert-level alert-red';al.innerHTML='● CRITICAL';}
+  else if(active.length>0){al.className='alert-level alert-yellow';al.innerHTML='● ACTIVE';}
+  else{al.className='alert-level alert-green';al.innerHTML='● NORMAL';}
+
+  if(resolvedCount>0){
+    document.getElementById('topAvg').textContent='~'+(8+Math.floor(Math.random()*6))+'min';
+  }
+}
+
+// ============================================================
+//  CITY MAP — CANVAS RENDERING
+// ============================================================
+let mapW=0,mapH=0;
+function initMap(){
+  const c=document.getElementById('mapCanvas');
+  const rect=c.parentElement.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  mapW=rect.width;mapH=rect.height;
+  c.width=mapW*dpr;c.height=mapH*dpr;
+  c.style.width=mapW+'px';c.style.height=mapH+'px';
+  c.getContext('2d').scale(dpr,dpr);
+}
+
+function nx(id){return NODES[id].x*mapW;}
+function ny(id){return NODES[id].y*mapH;}
+
+function drawMap(){
+  const c=document.getElementById('mapCanvas');
+  const ctx=c.getContext('2d');
+  ctx.save();
+  ctx.clearRect(0,0,mapW,mapH);
+
+  // Background
+  ctx.fillStyle='#060a16';ctx.fillRect(0,0,mapW,mapH);
+
+  // Grid pattern
+  ctx.strokeStyle='rgba(255,255,255,.015)';ctx.lineWidth=.5;
+  for(let x=0;x<mapW;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,mapH);ctx.stroke();}
+  for(let y=0;y<mapH;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(mapW,y);ctx.stroke();}
+
+  // Highlighted routes (from active emergencies)
+  const activeRoutes=new Set();
+  for(const e of emergencies.filter(e=>e.status==='active')){
+    if(e.rt.rescue)for(let i=0;i<e.rt.rescue.path.length-1;i++){activeRoutes.add(e.rt.rescue.path[i]+'-'+e.rt.rescue.path[i+1]);activeRoutes.add(e.rt.rescue.path[i+1]+'-'+e.rt.rescue.path[i]);}
+    if(e.rt.hospital)for(let i=0;i<e.rt.hospital.path.length-1;i++){activeRoutes.add(e.rt.hospital.path[i]+'-'+e.rt.hospital.path[i+1]);activeRoutes.add(e.rt.hospital.path[i+1]+'-'+e.rt.hospital.path[i]);}
+  }
+
+  // Edges
+  for(const[a,b,w]of EDGES){
+    const x1=nx(a),y1=ny(a),x2=nx(b),y2=ny(b);
+    const on=activeRoutes.has(a+'-'+b);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+    if(on){
+      ctx.strokeStyle='rgba(59,130,246,.5)';ctx.lineWidth=3;
+      ctx.shadowColor='rgba(59,130,246,.3)';ctx.shadowBlur=12;
+    }else{
+      ctx.strokeStyle='rgba(90,109,148,.15)';ctx.lineWidth=1.5;ctx.shadowBlur=0;
+    }
+    ctx.stroke();ctx.shadowBlur=0;
+
+    // Weight
+    const mx=(x1+x2)/2,my=(y1+y2)/2;
+    ctx.font='600 9px Inter,sans-serif';ctx.fillStyle=on?'rgba(96,165,250,.7)':'rgba(90,109,148,.3)';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(w+'km',mx,my-7);
+  }
+
+  // Emergency pulses
+  for(const p of emergencyPulses){
+    const x=nx(p.node),y=ny(p.node);
+    for(let i=0;i<3;i++){
+      const age=(p.age+i*30)%90;
+      const r=10+age*0.6;
+      const alpha=Math.max(0,1-age/90)*0.3;
+      ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(${p.color},${alpha})`;ctx.lineWidth=1.5;ctx.stroke();
+    }
+    p.age=(p.age+0.5)%90;
+  }
+
+  // Nodes
+  for(const[id,n]of Object.entries(NODES)){
+    const x=n.x*mapW,y=n.y*mapH;
+    const hasEmergency=emergencies.some(e=>e.status==='active'&&e.data.loc===id);
+    const r=hasEmergency?16:12;
+
+    // Glow
+    if(hasEmergency){
+      const gr=ctx.createRadialGradient(x,y,0,x,y,32);
+      gr.addColorStop(0,'rgba(239,68,68,.2)');gr.addColorStop(1,'transparent');
+      ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,32,0,Math.PI*2);ctx.fill();
+    }
+
+    // Node circle
+    let col='#283550';
+    if(n.hospital&&n.station)col='#7c3aed';
+    else if(n.hospital)col='#059669';
+    else if(n.station)col='#2563eb';
+    if(hasEmergency)col='#dc2626';
+
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=col;ctx.fill();
+    ctx.strokeStyle=hasEmergency?'#f87171':'rgba(255,255,255,.1)';ctx.lineWidth=hasEmergency?2.5:1;ctx.stroke();
+
+    // Icon
+    ctx.font='12px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(n.icon,x,y);
+
+    // Label
+    ctx.font='700 10px Inter,sans-serif';ctx.fillStyle=hasEmergency?'#fca5a5':'#8b9cc0';
+    ctx.textBaseline='top';ctx.fillText(id+' — '+n.name,x,y+r+5);
+  }
+
+  // Dispatch vehicle animations
+  for(let i=dispatchAnimations.length-1;i>=0;i--){
+    const anim=dispatchAnimations[i];
+    anim.progress+=anim.speed;
+    if(anim.progress>=1){dispatchAnimations.splice(i,1);continue;}
+
+    const totalSegs=anim.path.length-1;
+    const segF=anim.progress*totalSegs;
+    const segI=Math.min(Math.floor(segF),totalSegs-1);
+    const segP=segF-segI;
+    const n1=anim.path[segI],n2=anim.path[segI+1];
+    const vx=nx(n1)+(nx(n2)-nx(n1))*segP;
+    const vy=ny(n1)+(ny(n2)-ny(n1))*segP;
+
+    // Trail
+    ctx.beginPath();ctx.arc(vx,vy,18,0,Math.PI*2);
+    const tg=ctx.createRadialGradient(vx,vy,0,vx,vy,18);
+    tg.addColorStop(0,anim.color+'44');tg.addColorStop(1,'transparent');
+    ctx.fillStyle=tg;ctx.fill();
+
+    // Vehicle dot
+    ctx.beginPath();ctx.arc(vx,vy,5,0,Math.PI*2);
+    ctx.fillStyle=anim.color;ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+
+    // Label
+    ctx.font='600 8px "JetBrains Mono",monospace';ctx.fillStyle=anim.color;ctx.textAlign='center';ctx.textBaseline='bottom';
+    ctx.fillText(anim.label,vx,vy-9);
+  }
+
+  ctx.restore();
+}
+
+// ============================================================
+//  ANIMATION LOOP
+// ============================================================
+function tick(){
+  drawMap();
+  requestAnimationFrame(tick);
+}
+
+// ============================================================
+//  CLOCK
+// ============================================================
+function updateClock(){
+  const now=new Date();
+  document.getElementById('clock').textContent=now.toLocaleTimeString('en-US',{hour12:false});
+}
+
+// ============================================================
+//  MAP CLICK → SELECT LOCATION
+// ============================================================
+document.getElementById('mapCanvas').addEventListener('click',(e)=>{
+  const rect=e.target.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  let closest=null,minD=Infinity;
+  for(const[id,n]of Object.entries(NODES)){
+    const dx=n.x*mapW-mx,dy=n.y*mapH-my;
+    const d=Math.hypot(dx,dy);
+    if(d<minD){minD=d;closest=id;}
+  }
+  if(closest&&minD<40){
+    document.getElementById('fLoc').value=closest;
+  }
+});
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('load',()=>{
+  initMap();
+  renderLeftPanel();
+  updateClock();
+  setInterval(updateClock,1000);
+  tick();
+});
+window.addEventListener('resize',()=>{initMap();});
+</script>
+</body>
+</html>
