@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wumpus World — AI Inference Game</title>
+<meta name="description" content="Explore a hazardous mining grid: avoid pits and the Wumpus using AI-powered logical inference. An interactive game with fog of war.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#070b16;--surface:#0d1424;--surface2:#141e33;--surface3:#1b2740;
+  --border:#253050;--text:#e2e8f0;--text-dim:#94a3b8;--text-muted:#64748b;
+  --accent:#6366f1;--accent2:#818cf8;
+  --green:#10b981;--green-bg:rgba(16,185,129,.14);
+  --red:#ef4444;--red-bg:rgba(239,68,68,.14);
+  --yellow:#eab308;--yellow-bg:rgba(234,179,8,.14);
+  --cyan:#06b6d4;--cyan-bg:rgba(6,182,212,.12);
+  --pink:#ec4899;--orange:#f97316;--gold:#fbbf24;
+  --radius:14px;--radius-sm:8px;
+}
+html{font-size:15px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 40% -10%,rgba(99,102,241,.08),transparent),radial-gradient(ellipse 60% 40% at 90% 100%,rgba(6,182,212,.05),transparent);pointer-events:none;z-index:0}
+
+.app{max-width:1320px;margin:0 auto;padding:20px;position:relative;z-index:1}
+
+/* Header */
+.header{text-align:center;margin-bottom:24px;animation:fadeDown .5s ease}
+.header h1{font-size:2.1rem;font-weight:900;background:linear-gradient(135deg,var(--gold),var(--orange),var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-.5px}
+.header p{color:var(--text-dim);font-size:.88rem;margin-top:4px}
+.badge{display:inline-block;background:var(--yellow-bg);color:var(--gold);padding:4px 14px;border-radius:20px;font-size:.72rem;font-weight:700;margin-bottom:8px;border:1px solid rgba(251,191,36,.2);letter-spacing:.5px;text-transform:uppercase}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:1fr 340px;gap:20px}
+@media(max-width:960px){.layout{grid-template-columns:1fr}.sidebar{order:-1}}
+
+/* Card */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.card-title{font-size:.9rem;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+
+/* Stats Bar */
+.stats-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.stat{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;display:flex;align-items:center;gap:8px;flex:1;min-width:120px}
+.stat .icon{font-size:1.3rem}
+.stat .info{display:flex;flex-direction:column}
+.stat .label{font-size:.65rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;letter-spacing:.3px}
+.stat .value{font-size:1rem;font-weight:800;font-family:'JetBrains Mono',monospace}
+.stat .value.score{color:var(--gold)}
+.stat .value.health{color:var(--green)}
+.stat .value.arrows{color:var(--cyan)}
+.stat .value.moves{color:var(--accent2)}
+
+/* Game Grid */
+.grid-wrapper{display:flex;justify-content:center;margin-bottom:16px}
+.game-grid{display:inline-grid;gap:3px;padding:4px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.g-cell{width:80px;height:80px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;transition:all .2s;cursor:default;user-select:none;border:2px solid transparent}
+.g-cell .coords{position:absolute;top:2px;left:4px;font-size:.58rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;opacity:.6}
+.g-cell .cell-emoji{font-size:1.6rem;line-height:1;transition:transform .2s}
+.g-cell .cell-label{font-size:.55rem;font-weight:700;margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
+
+/* Cell states */
+.g-cell.fog{background:var(--surface3);border-color:var(--border)}
+.g-cell.fog .cell-emoji{filter:none}
+.g-cell.fog .cell-label{color:var(--text-muted)}
+.g-cell.visited{background:#0f1e2d;border-color:rgba(16,185,129,.25)}
+.g-cell.visited .cell-label{color:var(--green)}
+.g-cell.current{background:rgba(99,102,241,.15);border-color:var(--accent);animation:pulseCell 1.5s ease infinite}
+.g-cell.current .cell-label{color:var(--accent2)}
+.g-cell.danger{background:rgba(239,68,68,.1);border-color:var(--red)}
+.g-cell.danger .cell-label{color:var(--red)}
+.g-cell.gold-found{background:rgba(251,191,36,.12);border-color:var(--gold)}
+.g-cell.gold-found .cell-label{color:var(--gold)}
+.g-cell.clickable{cursor:pointer}.g-cell.clickable:hover{transform:scale(1.05);background:rgba(99,102,241,.1)}
+.g-cell.safe-inferred{border-color:rgba(16,185,129,.4)}.g-cell.safe-inferred .cell-label{color:var(--green)}
+.g-cell.risky-inferred{border-color:rgba(245,158,11,.4)}.g-cell.risky-inferred .cell-label{color:var(--yellow)}
+.g-cell.deadly-inferred{border-color:rgba(239,68,68,.4)}.g-cell.deadly-inferred .cell-label{color:var(--red)}
+
+/* Controls */
+.controls-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.ctrl-btn{padding:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:var(--radius-sm);font-family:inherit;font-weight:700;font-size:.82rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px}
+.ctrl-btn:hover:not(:disabled){background:var(--surface3);border-color:var(--accent);color:var(--accent2)}
+.ctrl-btn:disabled{opacity:.3;cursor:not-allowed}
+.ctrl-btn.wide{grid-column:1/-1}
+.ctrl-btn.action{background:linear-gradient(135deg,var(--accent),#7c3aed);border-color:transparent;color:#fff}
+.ctrl-btn.action:hover:not(:disabled){opacity:.9;transform:translateY(-1px)}
+.ctrl-btn.shoot{background:linear-gradient(135deg,var(--red),#dc2626);border-color:transparent;color:#fff}
+.ctrl-btn.shoot:hover:not(:disabled){opacity:.9}
+.ctrl-btn.grab{background:linear-gradient(135deg,var(--gold),var(--orange));border-color:transparent;color:#000}
+
+/* Sidebar */
+.sidebar{display:flex;flex-direction:column;gap:14px}
+
+/* Percepts panel */
+.percept-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px}
+.percept-box h4{font-size:.75rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.percept-list{display:flex;flex-direction:column;gap:4px}
+.percept-item{font-size:.8rem;display:flex;align-items:center;gap:6px;padding:4px 0}
+.percept-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Inference panel */
+.inference-list{display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto}
+.inf-item{font-size:.75rem;padding:6px 10px;border-radius:6px;display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace}
+.inf-safe{background:var(--green-bg);color:var(--green)}
+.inf-risky{background:var(--yellow-bg);color:var(--yellow)}
+.inf-deadly{background:var(--red-bg);color:var(--red)}
+.inf-info{background:var(--cyan-bg);color:var(--cyan)}
+
+/* Log */
+.game-log{max-height:220px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.8;color:var(--text-dim);background:var(--surface2);padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border)}
+.game-log .log-entry{border-bottom:1px solid rgba(37,48,80,.5);padding:2px 0}
+.game-log .log-entry:last-child{border:none}
+.log-safe{color:var(--green)}.log-danger{color:var(--red)}.log-warn{color:var(--yellow)}.log-info{color:var(--cyan)}.log-accent{color:var(--accent2)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:fadeIn .3s ease}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;max-width:420px;width:90%;text-align:center;animation:scaleIn .3s ease}
+.modal h2{font-size:1.5rem;font-weight:900;margin-bottom:8px}
+.modal p{color:var(--text-dim);font-size:.9rem;margin-bottom:20px;line-height:1.6}
+.modal .modal-score{font-size:2.2rem;font-weight:900;font-family:'JetBrains Mono',monospace;color:var(--gold);margin:12px 0}
+.modal-actions{display:flex;gap:10px;justify-content:center}
+
+/* Setup */
+.setup-card{max-width:500px;margin:40px auto}
+.setup-card h2{font-size:1.2rem;font-weight:800;margin-bottom:16px;text-align:center}
+.setup-group{margin-bottom:14px}
+.setup-group label{display:block;font-size:.78rem;font-weight:600;color:var(--text-dim);margin-bottom:5px}
+.setup-group select,.setup-group input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius-sm);font-size:.88rem;font-family:inherit;outline:none}
+.setup-group select:focus,.setup-group input:focus{border-color:var(--accent)}
+.start-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),var(--orange));border:none;border-radius:var(--radius-sm);color:#000;font-weight:800;font-size:1rem;font-family:inherit;cursor:pointer;margin-top:10px;letter-spacing:.3px;transition:all .2s}
+.start-btn:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(251,191,36,.3)}
+
+.legend{display:flex;gap:12px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);margin-top:10px}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:.68rem;color:var(--text-muted)}
+
+.path-display{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--green);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.path-arrow{color:var(--text-muted);font-size:.6rem}
+
+/* Animations */
+@keyframes fadeDown{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+@keyframes pulseCell{0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,.3)}50%{box-shadow:0 0 16px 3px rgba(99,102,241,.15)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <div class="badge">🎮 AI-Powered Game</div>
+    <h1>⚔️ Wumpus World</h1>
+    <p>Navigate the cave, avoid pits & the Wumpus, find the gold — your AI advisor infers safe moves</p>
+  </header>
+
+  <!-- Setup Screen -->
+  <div id="setupScreen">
+    <div class="card setup-card">
+      <h2>🗺️ Configure Your Adventure</h2>
+      <div class="setup-group">
+        <label>Grid Size</label>
+        <select id="setupSize">
+          <option value="4">4 × 4 (Classic)</option>
+          <option value="5">5 × 5 (Medium)</option>
+          <option value="6">6 × 6 (Large)</option>
+        </select>
+      </div>
+      <div class="setup-group">
+        <label>Difficulty</label>
+        <select id="setupDiff">
+          <option value="easy">Easy — 2 pits, 1 arrow</option>
+          <option value="medium" selected>Medium — 3 pits, 1 arrow</option>
+          <option value="hard">Hard — 4 pits, 1 arrow, less visibility</option>
+        </select>
+      </div>
+      <div class="setup-group">
+        <label>Wumpus Count</label>
+        <select id="setupWumpus">
+          <option value="1" selected>1 Wumpus</option>
+          <option value="2">2 Wumpuses</option>
+        </select>
+      </div>
+      <button class="start-btn" onclick="startGame()">⚔️ Enter the Cave</button>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="gameScreen" style="display:none">
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat"><span class="icon">🏆</span><div class="info"><span class="label">Score</span><span class="value score" id="scoreVal">0</span></div></div>
+      <div class="stat"><span class="icon">❤️</span><div class="info"><span class="label">Status</span><span class="value health" id="healthVal">Alive</span></div></div>
+      <div class="stat"><span class="icon">🏹</span><div class="info"><span class="label">Arrows</span><span class="value arrows" id="arrowVal">1</span></div></div>
+      <div class="stat"><span class="icon">👣</span><div class="info"><span class="label">Moves</span><span class="value moves" id="moveVal">0</span></div></div>
+      <div class="stat"><span class="icon">💎</span><div class="info"><span class="label">Gold</span><span class="value score" id="goldVal">Not Found</span></div></div>
+    </div>
+
+    <div class="layout">
+      <!-- Main game area -->
+      <div>
+        <div class="card">
+          <div class="card-title">🗺️ Cave Map <span style="flex:1"></span><span style="font-size:.7rem;color:var(--text-muted);font-weight:400">Click adjacent cells or use arrow keys to move</span></div>
+          <div class="grid-wrapper"><div class="game-grid" id="gameGrid"></div></div>
+
+          <!-- Movement Controls -->
+          <div style="max-width:260px;margin:0 auto">
+            <div class="controls-grid">
+              <div></div>
+              <button class="ctrl-btn" onclick="move(-1,0)" id="btnUp">⬆️ Up</button>
+              <div></div>
+              <button class="ctrl-btn" onclick="move(0,-1)" id="btnLeft">⬅️ Left</button>
+              <button class="ctrl-btn action" onclick="grab()" id="btnGrab">💎 Grab</button>
+              <button class="ctrl-btn" onclick="move(0,1)" id="btnRight">➡️ Right</button>
+              <div></div>
+              <button class="ctrl-btn" onclick="move(1,0)" id="btnDown">⬇️ Down</button>
+              <div></div>
+            </div>
+            <div class="controls-grid" style="grid-template-columns:1fr 1fr">
+              <button class="ctrl-btn shoot" onclick="enterShootMode()" id="btnShoot">🏹 Shoot Arrow</button>
+              <button class="ctrl-btn" onclick="climb()" id="btnClimb">🪜 Climb Out</button>
+            </div>
+          </div>
+
+          <div class="legend">
+            <div class="legend-item"><span>🤖</span> You</div>
+            <div class="legend-item"><span>🌫️</span> Fog</div>
+            <div class="legend-item"><span>✅</span> Visited</div>
+            <div class="legend-item"><span>💨</span> Breeze</div>
+            <div class="legend-item"><span>🦨</span> Stench</div>
+            <div class="legend-item"><span>✨</span> Glitter</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <!-- Current Percepts -->
+        <div class="card">
+          <div class="card-title">👁️ Current Percepts</div>
+          <div id="perceptPanel">
+            <div style="color:var(--text-muted);font-size:.82rem">Start the game to see percepts...</div>
+          </div>
+        </div>
+
+        <!-- AI Inference -->
+        <div class="card">
+          <div class="card-title">🧠 AI Advisor — Inference</div>
+          <div id="inferencePanel">
+            <div style="color:var(--text-muted);font-size:.82rem">The AI will analyze the environment and suggest safe moves...</div>
+          </div>
+        </div>
+
+        <!-- Safe Path -->
+        <div class="card">
+          <div class="card-title">🛤️ Suggested Path</div>
+          <div id="pathPanel">
+            <div style="color:var(--text-muted);font-size:.82rem">Path recommendations appear here...</div>
+          </div>
+        </div>
+
+        <!-- Game Log -->
+        <div class="card">
+          <div class="card-title">📜 Game Log</div>
+          <div class="game-log" id="gameLog"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal" class="modal-overlay" style="display:none">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+// ============================================================
+//  WUMPUS WORLD — INTERACTIVE GAME WITH AI INFERENCE
+// ============================================================
+
+let SIZE=4, PITS=3, WUMPUS_COUNT=1;
+let board=[], visited=[], agent={r:0,c:0}, arrows=1, score=0, moves=0;
+let hasGold=false, gameOver=false, shootMode=false;
+let logEntries=[];
+
+// Board cell: {pit,wumpus,gold,breeze,stench,glitter,wumpusDead}
+
+function startGame(){
+  SIZE = +document.getElementById('setupSize').value;
+  const diff = document.getElementById('setupDiff').value;
+  WUMPUS_COUNT = +document.getElementById('setupWumpus').value;
+  PITS = diff==='easy'?2:diff==='medium'?3:4;
+  arrows=1;
+  score=0;moves=0;hasGold=false;gameOver=false;shootMode=false;
+  logEntries=[];
+
+  // Init board
+  board=[];visited=[];
+  for(let r=0;r<SIZE;r++){
+    board[r]=[];visited[r]=[];
+    for(let c=0;c<SIZE;c++){
+      board[r][c]={pit:false,wumpus:false,gold:false,breeze:false,stench:false,glitter:false,wumpusDead:false};
+      visited[r][c]=false;
+    }
+  }
+
+  // Place pits (not at start)
+  let placed=0;
+  while(placed<PITS){
+    const r=Math.floor(Math.random()*SIZE),c=Math.floor(Math.random()*SIZE);
+    if((r===0&&c===0)||board[r][c].pit) continue;
+    board[r][c].pit=true;placed++;
+  }
+
+  // Place wumpus(es)
+  placed=0;
+  while(placed<WUMPUS_COUNT){
+    const r=Math.floor(Math.random()*SIZE),c=Math.floor(Math.random()*SIZE);
+    if((r===0&&c===0)||board[r][c].pit||board[r][c].wumpus) continue;
+    board[r][c].wumpus=true;placed++;
+  }
+
+  // Place gold (not at start, not on pit/wumpus)
+  while(true){
+    const r=Math.floor(Math.random()*SIZE),c=Math.floor(Math.random()*SIZE);
+    if((r===0&&c===0)||board[r][c].pit||board[r][c].wumpus) continue;
+    board[r][c].gold=true;board[r][c].glitter=true;break;
+  }
+
+  // Compute percepts
+  computePercepts();
+
+  // Agent starts at (0,0)
+  agent={r:0,c:0};
+  visited[0][0]=true;
+
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('gameScreen').style.display='block';
+
+  addLog('🎮 Game started! You enter the cave at (1,1)...','accent');
+  addLog('💡 Use arrow keys or click adjacent cells to move.','info');
+
+  render();
+}
+
+function computePercepts(){
+  // Reset percepts
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    board[r][c].breeze=false;
+    board[r][c].stench=false;
+  }
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    const neighbors=getN(r,c);
+    if(board[r][c].pit){
+      for(const [nr,nc] of neighbors) board[nr][nc].breeze=true;
+    }
+    if(board[r][c].wumpus && !board[r][c].wumpusDead){
+      for(const [nr,nc] of neighbors) board[nr][nc].stench=true;
+    }
+  }
+}
+
+function getN(r,c){
+  const n=[];
+  if(r>0)n.push([r-1,c]);if(r<SIZE-1)n.push([r+1,c]);
+  if(c>0)n.push([r,c-1]);if(c<SIZE-1)n.push([r,c+1]);
+  return n;
+}
+
+// ---- MOVEMENT ----
+function move(dr,dc){
+  if(gameOver) return;
+  if(shootMode){shootArrow(dr,dc);return;}
+  const nr=agent.r+dr, nc=agent.c+dc;
+  if(nr<0||nr>=SIZE||nc<0||nc>=SIZE) return;
+
+  agent.r=nr;agent.c=nc;
+  visited[nr][nc]=true;
+  moves++;score-=1;
+
+  const cell=board[nr][nc];
+  addLog(`👣 Moved to (${nr+1},${nc+1}).`,'info');
+
+  // Check hazards
+  if(cell.pit){
+    addLog('💀 You fell into a PIT! Game Over.','danger');
+    score-=1000;gameOver=true;
+    showModal('💀 Fell into a Pit!','You stepped into a bottomless pit and perished.',true);
+  } else if(cell.wumpus && !cell.wumpusDead){
+    addLog('💀 The WUMPUS devoured you! Game Over.','danger');
+    score-=1000;gameOver=true;
+    showModal('👹 Eaten by the Wumpus!','The terrible Wumpus caught you. Better luck next time!',true);
+  } else {
+    // Report percepts
+    if(cell.breeze) addLog('💨 You feel a breeze...','warn');
+    if(cell.stench) addLog('🦨 You smell a stench...','warn');
+    if(cell.glitter && cell.gold) addLog('✨ You see a glitter! There is GOLD here!','safe');
+  }
+
+  render();
+}
+
+function grab(){
+  if(gameOver) return;
+  const cell=board[agent.r][agent.c];
+  if(cell.gold){
+    cell.gold=false;
+    hasGold=true;
+    score+=1000;
+    addLog('💰 You grabbed the GOLD! Now climb out at (1,1)!','safe');
+  } else {
+    addLog('🤷 Nothing to grab here.','info');
+  }
+  render();
+}
+
+function climb(){
+  if(gameOver) return;
+  if(agent.r!==0||agent.c!==0){
+    addLog('⚠️ You can only climb out at (1,1)!','warn');
+    render();return;
+  }
+  if(hasGold){
+    score+=1000;
+    addLog('🏆 You climbed out with the GOLD! Victory!','safe');
+    gameOver=true;
+    showModal('🏆 Victory!','You escaped the cave with the gold! Incredible!',false);
+  } else {
+    addLog('🪜 You climbed out without the gold...','warn');
+    gameOver=true;
+    showModal('🪜 Escaped (No Gold)','You survived but left the gold behind. Try again for a better score!',false);
+  }
+  render();
+}
+
+function enterShootMode(){
+  if(gameOver||arrows<=0) return;
+  shootMode=true;
+  addLog('🏹 Shoot mode! Press an arrow key to fire.','accent');
+  render();
+}
+
+function shootArrow(dr,dc){
+  shootMode=false;
+  arrows--;
+  score-=10;
+  addLog(`🏹 Arrow fired ${dr===-1?'Up':dr===1?'Down':dc===-1?'Left':'Right'}!`,'accent');
+
+  // Arrow travels in direction until hitting wall or wumpus
+  let cr=agent.r+dr, cc=agent.c+dc;
+  let hit=false;
+  while(cr>=0&&cr<SIZE&&cc>=0&&cc<SIZE){
+    if(board[cr][cc].wumpus && !board[cr][cc].wumpusDead){
+      board[cr][cc].wumpusDead=true;
+      hit=true;
+      addLog('🎯 You hear a SCREAM! The Wumpus is dead!','safe');
+      computePercepts();
+      break;
+    }
+    cr+=dr;cc+=dc;
+  }
+  if(!hit) addLog('😬 The arrow hit the wall. Nothing happened.','warn');
+  render();
+}
+
+// ---- CLICK TO MOVE ----
+function cellClick(r,c){
+  if(gameOver) return;
+  const dr=r-agent.r, dc=c-agent.c;
+  if(Math.abs(dr)+Math.abs(dc)===1){
+    if(shootMode) shootArrow(dr,dc);
+    else move(dr,dc);
+  }
+}
+
+// ---- KEYBOARD ----
+document.addEventListener('keydown',(e)=>{
+  if(gameOver) return;
+  const map={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1],w:[-1,0],s:[1,0],a:[0,-1],d:[0,1]};
+  const m=map[e.key];
+  if(m){
+    e.preventDefault();
+    if(shootMode) shootArrow(m[0],m[1]);
+    else move(m[0],m[1]);
+  }
+  if(e.key==='g'||e.key==='G') grab();
+  if(e.key==='c'||e.key==='C') climb();
+  if(e.key==='f'||e.key==='F') enterShootMode();
+});
+
+// ============================================================
+//  AI INFERENCE ENGINE
+// ============================================================
+function runInference(){
+  const kb={};
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    const k=`${r},${c}`;
+    kb[k]={safe:false,risky:false,deadly:false,pit_risk:0,wumpus_risk:0,reason:[]};
+  }
+
+  // Known safe: visited cells
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    if(visited[r][c]){
+      kb[`${r},${c}`].safe=true;
+      kb[`${r},${c}`].reason.push('Visited — confirmed safe');
+    }
+  }
+
+  // Infer from percepts at visited cells
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    if(!visited[r][c]) continue;
+    const cell=board[r][c];
+    const neighbors=getN(r,c);
+
+    if(cell.breeze){
+      // Adjacent unvisited cells might have pit
+      for(const [nr,nc] of neighbors){
+        if(!visited[nr][nc]){
+          kb[`${nr},${nc}`].pit_risk++;
+          kb[`${nr},${nc}`].reason.push(`Pit risk from breeze at (${r+1},${c+1})`);
+        }
+      }
+    }
+    if(cell.stench){
+      for(const [nr,nc] of neighbors){
+        if(!visited[nr][nc]){
+          kb[`${nr},${nc}`].wumpus_risk++;
+          kb[`${nr},${nc}`].reason.push(`Wumpus risk from stench at (${r+1},${c+1})`);
+        }
+      }
+    }
+
+    // If a visited cell has NO breeze, all its unvisited neighbors are pit-safe
+    if(!cell.breeze){
+      for(const [nr,nc] of neighbors){
+        const nk=`${nr},${nc}`;
+        if(!visited[nr][nc] && kb[nk].pit_risk===0){
+          // This neighbor is safe from pits via this cell
+          kb[nk].reason.push(`No pit risk (no breeze at (${r+1},${c+1}))`);
+        }
+      }
+    }
+    if(!cell.stench){
+      for(const [nr,nc] of neighbors){
+        const nk=`${nr},${nc}`;
+        if(!visited[nr][nc] && kb[nk].wumpus_risk===0){
+          kb[nk].reason.push(`No wumpus risk (no stench at (${r+1},${c+1}))`);
+        }
+      }
+    }
+  }
+
+  // Classify unvisited cells
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    if(visited[r][c]) continue;
+    const k=`${r},${c}`;
+    const info=kb[k];
+    const neighbors=getN(r,c);
+    const visitedNeighbors=neighbors.filter(([nr,nc])=>visited[nr][nc]);
+
+    if(visitedNeighbors.length===0) continue; // No info
+
+    // Check if ALL visited neighbors have no breeze → safe from pits
+    const allNoBreezeNeighbors = visitedNeighbors.every(([nr,nc])=>!board[nr][nc].breeze);
+    const allNoStenchNeighbors = visitedNeighbors.every(([nr,nc])=>!board[nr][nc].stench);
+
+    if(allNoBreezeNeighbors && allNoStenchNeighbors){
+      info.safe=true;
+      info.reason.push('SAFE — all visited neighbors have no breeze or stench');
+    } else if(info.pit_risk>=2 || info.wumpus_risk>=2){
+      info.deadly=true;
+      info.reason.push('DEADLY — multiple percepts converge here');
+    } else if(info.pit_risk>0 || info.wumpus_risk>0){
+      info.risky=true;
+    }
+  }
+
+  return kb;
+}
+
+function findSafePath(kb){
+  // BFS from current position to unvisited safe cells, or to gold if known
+  const start=`${agent.r},${agent.c}`;
+  const q=[[start,[start]]];
+  const seen=new Set([start]);
+  const safeMoves=[];
+
+  // Find nearest unvisited safe cell or gold
+  let goldTarget=null;
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    if(board[r][c].gold && visited[r][c]) continue;
+    if(board[r][c].glitter && !board[r][c].gold) continue;
+  }
+
+  while(q.length){
+    const [cur,path]=q.shift();
+    const [cr,cc]=cur.split(',').map(Number);
+
+    // If unvisited safe cell → add as target
+    if(!visited[cr][cc] && kb[cur].safe && path.length>1){
+      safeMoves.push({target:cur,path});
+      if(safeMoves.length>=3) break;
+    }
+
+    for(const [nr,nc] of getN(cr,cc)){
+      const nk=`${nr},${nc}`;
+      if(seen.has(nk)) continue;
+      if(kb[nk].safe || visited[nr][nc]){
+        seen.add(nk);
+        q.push([nk,[...path,nk]]);
+      }
+    }
+  }
+  return safeMoves;
+}
+
+// ============================================================
+//  RENDERING
+// ============================================================
+function render(){
+  const kb = runInference();
+  renderGrid(kb);
+  renderStats();
+  renderPercepts();
+  renderInference(kb);
+  renderPath(kb);
+  renderLog();
+}
+
+function renderGrid(kb){
+  const grid=document.getElementById('gameGrid');
+  grid.style.gridTemplateColumns=`repeat(${SIZE},80px)`;
+  let html='';
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    const isAgent=(r===agent.r&&c===agent.c);
+    const isVisited=visited[r][c];
+    const cell=board[r][c];
+    const k=`${r},${c}`;
+    const inf=kb[k];
+    const isAdj=!gameOver && (Math.abs(r-agent.r)+Math.abs(c-agent.c)===1);
+
+    let cls='g-cell';
+    let emoji='🌫️';
+    let label='Fog';
+
+    if(isAgent){
+      cls+=' current';
+      emoji='🤖';
+      label='You';
+      if(cell.breeze&&cell.stench) label='Breeze+Stench';
+      else if(cell.breeze) label='Breeze';
+      else if(cell.stench) label='Stench';
+      else label='Safe';
+    } else if(isVisited){
+      cls+=' visited';
+      if(cell.pit){cls=' g-cell danger';emoji='🕳️';label='Pit';}
+      else if(cell.wumpus&&!cell.wumpusDead){cls=' g-cell danger';emoji='👹';label='Wumpus';}
+      else if(cell.wumpusDead){emoji='💀';label='Dead Wumpus';}
+      else if(cell.breeze&&cell.stench){emoji='💨🦨';label='B+S';}
+      else if(cell.breeze){emoji='💨';label='Breeze';}
+      else if(cell.stench){emoji='🦨';label='Stench';}
+      else if(cell.glitter&&cell.gold){emoji='💎';label='Gold!';cls=' g-cell gold-found';}
+      else{emoji='✅';label='Safe';}
+    } else {
+      cls+=' fog';
+      // Show inference overlay
+      if(inf.safe){cls+=' safe-inferred';emoji='🟢';label='Likely Safe';}
+      else if(inf.deadly){cls+=' deadly-inferred';emoji='☠️';label='Deadly';}
+      else if(inf.risky){cls+=' risky-inferred';emoji='⚠️';label='Risky';}
+    }
+
+    if(isAdj && !gameOver) cls+=' clickable';
+
+    html+=`<div class="${cls}" onclick="cellClick(${r},${c})" title="(${r+1},${c+1})${isVisited?' — Visited':''}">`
+      +`<span class="coords">${r+1},${c+1}</span>`
+      +`<span class="cell-emoji">${emoji}</span>`
+      +`<span class="cell-label">${label}</span>`
+    +`</div>`;
+  }
+  grid.innerHTML=html;
+}
+
+function renderStats(){
+  document.getElementById('scoreVal').textContent=score;
+  document.getElementById('healthVal').textContent=gameOver?'Dead':'Alive';
+  document.getElementById('healthVal').style.color=gameOver?'var(--red)':'var(--green)';
+  document.getElementById('arrowVal').textContent=arrows;
+  document.getElementById('moveVal').textContent=moves;
+  document.getElementById('goldVal').textContent=hasGold?'Collected!':'Not Found';
+  document.getElementById('goldVal').style.color=hasGold?'var(--gold)':'var(--text-muted)';
+}
+
+function renderPercepts(){
+  const cell=board[agent.r][agent.c];
+  const p=document.getElementById('perceptPanel');
+  let items=[];
+  if(cell.stench) items.push({icon:'🦨',text:'Stench detected — Wumpus nearby!',color:'var(--yellow)'});
+  if(cell.breeze) items.push({icon:'💨',text:'Breeze felt — Pit nearby!',color:'var(--cyan)'});
+  if(cell.glitter&&cell.gold) items.push({icon:'✨',text:'Glitter! Gold is HERE!',color:'var(--gold)'});
+  if(items.length===0) items.push({icon:'✅',text:'No percepts — this cell is calm.',color:'var(--green)'});
+
+  p.innerHTML=items.map(i=>`<div class="percept-item"><div class="dot" style="background:${i.color}"></div><span>${i.icon} ${i.text}</span></div>`).join('');
+
+  if(shootMode) p.innerHTML+=`<div class="percept-item" style="margin-top:8px;color:var(--red);font-weight:700">🎯 SHOOT MODE — press arrow key to fire!</div>`;
+}
+
+function renderInference(kb){
+  const panel=document.getElementById('inferencePanel');
+  const items=[];
+
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    if(visited[r][c]) continue;
+    const k=`${r},${c}`;
+    const inf=kb[k];
+    const neighbors=getN(r,c);
+    const hasVisitedNeighbor=neighbors.some(([nr,nc])=>visited[nr][nc]);
+    if(!hasVisitedNeighbor) continue;
+
+    if(inf.safe) items.push({cls:'inf-safe',text:`(${r+1},${c+1}) → SAFE to explore`,icon:'✅'});
+    else if(inf.deadly) items.push({cls:'inf-deadly',text:`(${r+1},${c+1}) → LIKELY DEADLY`,icon:'☠️'});
+    else if(inf.risky) items.push({cls:'inf-risky',text:`(${r+1},${c+1}) → RISKY (uncertain)`,icon:'⚠️'});
+  }
+
+  if(items.length===0) items.push({cls:'inf-info',text:'Explore more cells to gather data...',icon:'🔍'});
+
+  panel.innerHTML=`<div class="inference-list">${items.map(i=>`<div class="inf-item ${i.cls}">${i.icon} ${i.text}</div>`).join('')}</div>`;
+}
+
+function renderPath(kb){
+  const panel=document.getElementById('pathPanel');
+  const safePaths=findSafePath(kb);
+  if(safePaths.length===0){
+    if(hasGold){
+      // Suggest going back to start
+      panel.innerHTML=`<div style="color:var(--gold);font-size:.82rem">🏆 You have the gold! Head back to (1,1) and climb out!</div>`;
+    } else {
+      panel.innerHTML=`<div style="color:var(--text-muted);font-size:.82rem">No safe unexplored paths found. You may need to take a risk or shoot!</div>`;
+    }
+    return;
+  }
+
+  panel.innerHTML=safePaths.map((sp,i)=>{
+    const pathStr=sp.path.map((p,j)=>{
+      const [pr,pc]=p.split(',').map(Number);
+      return `<span>(${pr+1},${pc+1})</span>${j<sp.path.length-1?'<span class="path-arrow">►</span>':''}`;
+    }).join('');
+    return `<div style="margin-bottom:6px"><div style="font-size:.7rem;color:var(--text-muted);margin-bottom:3px">Option ${i+1}:</div><div class="path-display">${pathStr}</div></div>`;
+  }).join('');
+}
+
+// ---- LOG ----
+function addLog(text,type='info'){
+  logEntries.unshift({text,type});
+  if(logEntries.length>50) logEntries.pop();
+}
+function renderLog(){
+  const el=document.getElementById('gameLog');
+  el.innerHTML=logEntries.map(l=>`<div class="log-entry log-${l.type}">${l.text}</div>`).join('');
+}
+
+// ---- MODAL ----
+function showModal(title,msg,isDeath){
+  const m=document.getElementById('modal');
+  m.style.display='flex';
+  document.getElementById('modalContent').innerHTML=`
+    <h2>${title}</h2>
+    <div class="modal-score">${score}</div>
+    <p>Final Score</p>
+    <p>${msg}</p>
+    <p style="font-size:.78rem;color:var(--text-muted)">Moves: ${moves} · Arrows left: ${arrows} · Gold: ${hasGold?'Yes':'No'}</p>
+    <div class="modal-actions">
+      <button class="ctrl-btn action" onclick="document.getElementById('modal').style.display='none';document.getElementById('gameScreen').style.display='none';document.getElementById('setupScreen').style.display='block';">🔄 Play Again</button>
+      <button class="ctrl-btn" onclick="revealBoard()">🗺️ Reveal Map</button>
+    </div>
+  `;
+}
+function revealBoard(){
+  document.getElementById('modal').style.display='none';
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) visited[r][c]=true;
+  render();
+  addLog('🗺️ Full map revealed!','accent');
+}
+</script>
+</body>
+</html>
